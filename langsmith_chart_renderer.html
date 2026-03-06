@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>LangSmith ECharts Renderer</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.0.0/dist/echarts.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: sans-serif;
+      background: #f7f7f3;
+    }
+    #title { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+    #subtitle { font-size: 13px; color: #555; margin-bottom: 12px; }
+    #chart { width: 100%; height: 400px; }
+    #placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 400px;
+      color: #999;
+      border: 1px dashed #ccc;
+      border-radius: 8px;
+      font-size: 13px;
+      text-align: center;
+      padding: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="title"></div>
+  <div id="subtitle"></div>
+  <div id="placeholder">Waiting for run data from LangSmith…<br><br>
+    If this persists, check that this renderer URL is configured on the dataset<br>
+    (Dataset ⋮ menu → Custom Output Rendering) and that your run output contains
+    an <code>echart_spec</code> key.
+  </div>
+  <div id="chart" style="display:none"></div>
+
+  <script>
+    /**
+     * LangSmith Custom Output Renderer — ECharts
+     *
+     * LangSmith loads this page in an iframe when viewing a run from a dataset
+     * that has this URL configured under Custom Output Rendering.
+     * It then POSTs the run output via window.postMessage with the shape:
+     *
+     *   {
+     *     type: "output" | "reference",
+     *     data: { echart_spec: {...}, wrapper: { title, subtitle } },
+     *     metadata: { inputs: {...} }
+     *   }
+     *
+     * LangSmith retries the message up to 6 times (100ms → 3200ms back-off)
+     * to handle slow-loading pages.
+     */
+
+    var chartInstance = null;
+
+    function renderChart(spec, wrapper) {
+      document.getElementById('placeholder').style.display = 'none';
+      var chartEl = document.getElementById('chart');
+      chartEl.style.display = 'block';
+      document.getElementById('title').textContent = (wrapper && wrapper.title) || '';
+      document.getElementById('subtitle').textContent = (wrapper && wrapper.subtitle) || '';
+      if (!chartInstance) {
+        chartInstance = echarts.init(chartEl);
+      }
+      chartInstance.setOption(spec);
+    }
+
+    window.addEventListener('message', function (event) {
+      var msg = event.data;
+      if (!msg || msg.type !== 'output') return;
+      var data = msg.data || {};
+      if (data.echart_spec) {
+        renderChart(data.echart_spec, data.wrapper || null);
+      }
+    });
+
+    window.addEventListener('resize', function () {
+      if (chartInstance) chartInstance.resize();
+    });
+  </script>
+</body>
+</html>
